@@ -36,12 +36,15 @@
           </button>
           <!-- 循环模式按钮 -->
           <button @click="toggleLoopMode">
-            <span v-if="currentLoopMode === 0" class="mdi mdi-repeat"></span>
+            <span
+              v-if="currentLoopMode === 0"
+              class="mdi mdi-repeat"
+            ></span>
             <span
               v-else-if="currentLoopMode === 1"
-              class="mdi mdi-repeat-off"
+              class="mdi mdi-shuffle"
             ></span>
-            <span v-else class="mdi mdi-shuffle"></span>
+            <span v-else class="mdi mdi-repeat-variant"></span>
           </button>
           <!-- 选择文件按钮 -->
           <label class="custom-file-upload">
@@ -55,8 +58,12 @@
           </label>
         </div>
 
-        <div class="playlist">
+        <div class="playlist-title">
+          <span class="mdi mdi-playlist-music"></span>
           <h3>播放列表</h3>
+        </div>
+
+        <div class="playlist">
           <ul>
             <li
               v-for="(track, index) in tracks"
@@ -67,7 +74,7 @@
               {{ track.name }}
               <span
                 @click.stop="removeTrack(index)"
-                class="mdi mdi-delete"
+                class="mdi mdi-trash-can-outline"
               ></span>
             </li>
           </ul>
@@ -81,8 +88,6 @@
     @timeupdate="updateProgressDisplay"
     @ended="onTrackEnd"
     @loadedmetadata="initializeAudio"
-    muted
-    autoplay
   ></audio>
 </template>
 
@@ -168,7 +173,7 @@ export default defineComponent({
     const currentTrackIndex = ref(0);
     const tracks = reactive<{ id: number; name: string; file: File }[]>([]);
     const dataArray = ref<Uint8Array | null>(null);
-    const loopModes = ["单曲循环", "顺序循环", "随机播放"];
+    const loopModes = ["顺序循环", "随机播放", "单曲循环"];
     const currentLoopMode = ref(0);
     const progress = ref(0);
     let trackDuration = 0;
@@ -184,6 +189,7 @@ export default defineComponent({
       if (!audioContext.value) {
         audioContext.value = new (window.AudioContext ||
           window.webkitAudioContext)();
+        console.log("AudioContext 初始化");
       }
 
       if (!audioSource.value && audioElement.value) {
@@ -201,22 +207,20 @@ export default defineComponent({
       }
     };
 
-    const resetAudioContext = () => {
-      if (audioContext.value && audioContext.value.state !== "closed") {
-        audioContext.value.close();
-        audioContext.value = null;
-        audioSource.value = null;
-      }
-    };
-
     const loadTrack = async (index: number) => {
       if (audioElement.value) {
         const track = tracks[index];
         audioElement.value.src = URL.createObjectURL(track.file);
-        audioElement.value.load();
+        audioElement.value.load(); // 确保音频资源加载
+        console.log("音频加载中...");
+        await new Promise((resolve) => {
+          audioElement.value?.addEventListener("canplaythrough", resolve, {
+            once: true,
+          });
+        });
+        console.log("音频加载完成");
       }
     };
-
     const handleFileUpload = async (event: Event) => {
       const files = (event.target as HTMLInputElement).files;
       if (files) {
@@ -250,15 +254,15 @@ export default defineComponent({
 
     // 在播放按钮事件中调用
     const togglePlay = async () => {
-      if (!audioContext.value) {
-        initializeAudio();
-      } else if (audioContext.value.state === "suspended") {
-        await audioContext.value.resume();
-      }
-
       if (!audioElement.value) return;
 
       try {
+        if (!audioContext.value || audioContext.value.state === "suspended") {
+          initializeAudio();
+          await audioContext.value?.resume();
+          console.log("音频上下文已恢复");
+        }
+
         if (audioElement.value.muted) {
           audioElement.value.muted = false; // 取消静音
         }
@@ -266,10 +270,23 @@ export default defineComponent({
         if (isPlaying.value) {
           audioElement.value.pause();
           isPlaying.value = false;
+          console.log("音频已暂停");
         } else {
+          // 等待音频资源加载完成
+          if (audioElement.value.readyState < 4) {
+            console.log("等待音频资源加载...");
+            await new Promise((resolve) => {
+              audioElement.value?.addEventListener("canplaythrough", resolve, {
+                once: true,
+              });
+            });
+            console.log("音频资源加载完成");
+          }
+
           await audioElement.value.play();
           isPlaying.value = true;
           visualize();
+          console.log("音频播放中");
         }
       } catch (error) {
         console.error("播放音频时出错:", error);
@@ -284,6 +301,8 @@ export default defineComponent({
         audioElement.value.oncanplaythrough = () => {
           audioElement.value?.play();
           isPlaying.value = true;
+          // 启动可视化渲染
+          visualize();
         };
       }
     };
@@ -324,15 +343,18 @@ export default defineComponent({
 
     const onTrackEnd = () => {
       switch (currentLoopMode.value) {
-        case 0: // 单曲循环
+        case 0: // 顺序循环
+          nextTrack();
+          break;
+        case 1: // 随机播放
+          const randomIndex = Math.floor(Math.random() * tracks.length);
+          playSpecificTrack(randomIndex);
+          break;
+        case 2: // 单曲循环
           if (audioElement.value) {
             audioElement.value.currentTime = 0;
             audioElement.value.play();
           }
-          break;
-        case 1: // 顺序循环
-        case 2: // 随机播放
-          nextTrack();
           break;
       }
     };
@@ -346,14 +368,22 @@ export default defineComponent({
       canvas.width = 600;
       canvas.height = 600;
 
-      const bufferLength = analyser.value.frequencyBinCount;
+      // 创建默认空数据数组
+      const bufferLength = analyser.value
+        ? analyser.value.frequencyBinCount
+        : 256; // 默认 256 数据
       dataArray.value = new Uint8Array(bufferLength);
 
       const draw = () => {
-        if (!isPlaying.value) return;
-
-        analyser.value.getByteFrequencyData(dataArray.value);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (analyser.value) {
+          // 如果有音频输入，获取真实数据
+          analyser.value.getByteFrequencyData(dataArray.value);
+        } else {
+          // 如果没有音频输入，填充最小值
+          dataArray.value = new Uint8Array(bufferLength).fill(5);
+        }
 
         if (visualizerType.value === "circle") {
           drawCircleVisualizer(ctx, bufferLength);
@@ -439,6 +469,9 @@ export default defineComponent({
       const savedTracks = await getTracksFromDB();
       tracks.push(...savedTracks);
 
+      // 初始化可视化
+      visualize();
+
       document.body.addEventListener(
         "click",
         () => {
@@ -496,10 +529,10 @@ export default defineComponent({
 
 .player {
   text-align: center;
-  width: 100%;
   flex-direction: row;
   display: flex;
   justify-content: center;
+  margin: 0 auto;
 }
 
 .visualizer-controls button {
@@ -592,10 +625,67 @@ button:hover {
 }
 
 .playlist {
-  margin-top: 20px;
   text-align: left;
   width: 600px;
+  max-height: 380px;
+  overflow-y: auto;
+  transition: all 0.3s ease-in-out;
+  box-sizing: border-box;
+  /* 始终保留滚动条空间 */
+  scrollbar-gutter: stable;
 }
+
+.playlist-title{
+  display: flex;
+  justify-content: flex-start;
+  align-items: center;
+  width: 100%;
+  height: 30px;
+  margin-top: 30px;
+  
+}
+.playlist-title h3 {
+  margin-left: 10px;
+}
+
+.playlist-title span {
+  margin-left: 10px;
+  font-size: 35px;
+}
+
+/* 滚动条基础样式 */
+.playlist::-webkit-scrollbar {
+  width: 6px; /* 滚动条默认宽度 */
+  opacity: 0; /* 初始透明 */
+  transition: opacity 0.3s ease-in-out; /* 平滑透明度 */
+}
+
+/* 滚动条轨道 */
+.playlist::-webkit-scrollbar-track {
+  background: transparent; /* 轨道背景透明 */
+}
+
+/* 滚动条滑块 */
+.playlist::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0); /* 初始完全透明 */
+  border-radius: 3px; /* 圆角 */
+  transition: background 0.3s ease-in-out; /* 平滑滑块颜色 */
+}
+
+/* 鼠标悬停在列表区域时 */
+.playlist:hover::-webkit-scrollbar {
+  opacity: 1; /* 过渡显示滚动条 */
+}
+
+.playlist:hover::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3); /* 滑块半透明 */
+}
+
+/* 鼠标悬浮在滚动条滑块上时 */
+.playlist::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5); /* 滑块更明显 */
+}
+
 
 .playlist ul {
   list-style: none;
@@ -604,14 +694,15 @@ button:hover {
 
 .playlist li {
   cursor: pointer;
-  padding: 5px 5px 5px 10px;
+  padding: 10px 10px 10px 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
 .playlist li.playing {
-  background-color: #e6e6e63f;
+  background-color: #b6b6b636;
+  color: #22de9c;
 }
 
 .playlist li span {
@@ -622,7 +713,7 @@ button:hover {
 
 .progress-bar {
   width: 100%;
-  margin: 10px 0;
+  margin: 20px 0px 10px 0px;
   -webkit-appearance: none;
   background: #444;
   height: 5px;
