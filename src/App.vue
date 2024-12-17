@@ -36,10 +36,7 @@
           </button>
           <!-- 循环模式按钮 -->
           <button @click="toggleLoopMode">
-            <span
-              v-if="currentLoopMode === 0"
-              class="mdi mdi-repeat"
-            ></span>
+            <span v-if="currentLoopMode === 0" class="mdi mdi-repeat"></span>
             <span
               v-else-if="currentLoopMode === 1"
               class="mdi mdi-shuffle"
@@ -341,7 +338,12 @@ export default defineComponent({
       playSpecificTrack(prevIndex);
     };
 
+    let trackEnding = false; // 防止重复触发标志
+
     const onTrackEnd = () => {
+      if (trackEnding) return; // 避免重复调用
+      trackEnding = true;
+
       switch (currentLoopMode.value) {
         case 0: // 顺序循环
           nextTrack();
@@ -357,6 +359,8 @@ export default defineComponent({
           }
           break;
       }
+
+      setTimeout(() => (trackEnding = false), 100); // 恢复标志位，防止连续触发
     };
 
     const visualize = () => {
@@ -468,6 +472,12 @@ export default defineComponent({
       await openDB();
       const savedTracks = await getTracksFromDB();
       tracks.push(...savedTracks);
+
+      // 如果播放列表中有歌曲，自动加载第一首
+      if (tracks.length > 0 && audioElement.value) {
+        loadTrack(0);
+        console.log("默认加载第一首歌曲");
+      }
 
       // 初始化可视化
       visualize();
@@ -635,14 +645,13 @@ button:hover {
   scrollbar-gutter: stable;
 }
 
-.playlist-title{
+.playlist-title {
   display: flex;
   justify-content: flex-start;
   align-items: center;
   width: 100%;
   height: 30px;
   margin-top: 30px;
-  
 }
 .playlist-title h3 {
   margin-left: 10px;
@@ -685,7 +694,6 @@ button:hover {
 .playlist::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.5); /* 滑块更明显 */
 }
-
 
 .playlist ul {
   list-style: none;
