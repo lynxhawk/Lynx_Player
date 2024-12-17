@@ -60,7 +60,7 @@
           <h3>播放列表</h3>
         </div>
 
-        <div class="playlist">
+        <div class="playlist" @scroll="disableAutoScroll">
           <ul>
             <li
               v-for="(track, index) in tracks"
@@ -174,8 +174,35 @@ export default defineComponent({
     const currentLoopMode = ref(0);
     const progress = ref(0);
     let trackDuration = 0;
-    let pausedTime = 0;
     const visualizerType = ref<"circle" | "tree">("circle"); // 当前可视化类型
+
+    let autoScrollEnabled = true; // 标志位：控制是否自动滚动
+
+    const scrollToCurrentTrack = () => {
+      if (!autoScrollEnabled) return; // 如果用户手动滚动，不自动滚动
+
+      const playlist = document.querySelector(".playlist");
+      const currentTrack = document.querySelector(".playlist li.playing");
+
+      if (playlist && currentTrack) {
+        currentTrack.scrollIntoView({
+          behavior: "smooth", // 平滑滚动
+          //block: "nearest", // 只滚动到当前元素可见即可
+          block: "center", // 将元素滚动到列表的中间
+          inline: "nearest", // 如果水平方向不需要滚动，就忽略
+        });
+      }
+    };
+
+    const disableAutoScroll = () => {
+      autoScrollEnabled = false;
+
+      // 用户停止滚动 3 秒后恢复自动滚动功能
+      clearTimeout((window as any).scrollTimeout);
+      (window as any).scrollTimeout = setTimeout(() => {
+        autoScrollEnabled = true;
+      }, 1000);
+    };
 
     const toggleVisualizerType = () => {
       visualizerType.value =
@@ -298,8 +325,8 @@ export default defineComponent({
         audioElement.value.oncanplaythrough = () => {
           audioElement.value?.play();
           isPlaying.value = true;
-          // 启动可视化渲染
           visualize();
+          scrollToCurrentTrack(); // 播放时自动滚动到当前歌曲
         };
       }
     };
@@ -344,23 +371,26 @@ export default defineComponent({
       if (trackEnding) return; // 避免重复调用
       trackEnding = true;
 
-      switch (currentLoopMode.value) {
-        case 0: // 顺序循环
-          nextTrack();
-          break;
-        case 1: // 随机播放
-          const randomIndex = Math.floor(Math.random() * tracks.length);
-          playSpecificTrack(randomIndex);
-          break;
-        case 2: // 单曲循环
-          if (audioElement.value) {
-            audioElement.value.currentTime = 0;
-            audioElement.value.play();
-          }
-          break;
-      }
+      console.log("当前音频播放结束，准备切换到下一首");
 
-      setTimeout(() => (trackEnding = false), 100); // 恢复标志位，防止连续触发
+      setTimeout(() => {
+        switch (currentLoopMode.value) {
+          case 0: // 顺序循环
+            nextTrack();
+            break;
+          case 1: // 随机播放
+            const randomIndex = Math.floor(Math.random() * tracks.length);
+            playSpecificTrack(randomIndex);
+            break;
+          case 2: // 单曲循环
+            if (audioElement.value) {
+              audioElement.value.currentTime = 0;
+              audioElement.value.play();
+            }
+            break;
+        }
+        trackEnding = false; // 恢复标志位
+      }, 100); // 加入小延时，确保状态正确
     };
 
     const visualize = () => {
@@ -521,6 +551,7 @@ export default defineComponent({
       onTrackEnd,
       initializeAudio,
       toggleVisualizerType,
+      disableAutoScroll,
     };
   },
 });
@@ -611,7 +642,9 @@ button:hover {
 }
 
 .custom-file-upload {
-  display: inline-block;
+  display: inline-flex; /* 使用 flex 布局 */
+  justify-content: center; /* 水平居中 */
+  align-items: center; /* 垂直居中 */
   padding: 10px 20px;
   font-size: 16px;
   background-color: transparent;
@@ -622,13 +655,14 @@ button:hover {
   margin: 0 5px;
   width: 100px;
   transition: background 0.3s; /* 平滑过渡 */
+  height: 76px;
 }
 
 .custom-file-upload:hover {
   background-color: #b6b6b636;
   color: #22de9c;
-  height: 90px;
 }
+
 
 .custom-file-upload input {
   display: none;
