@@ -16,7 +16,7 @@
           max="100"
           step="0.1"
           v-model="progress"
-          @input="updateProgressDisplay"
+          @input="seekTrack"
           @change="seekTrack"
           class="progress-bar"
         />
@@ -236,7 +236,7 @@ export default defineComponent({
 
     const updateProgressDisplay = () => {
       if (audioElement.value && !isNaN(audioElement.value.duration)) {
-        trackDuration = audioElement.value.duration;
+        trackDuration = audioElement.value.duration; // 更新音频总时长
         progress.value = (audioElement.value.currentTime / trackDuration) * 100;
       }
     };
@@ -245,10 +245,6 @@ export default defineComponent({
       if (audioElement.value) {
         const seekTime = (progress.value / 100) * trackDuration;
         audioElement.value.currentTime = seekTime;
-
-        if (isPlaying.value) {
-          audioElement.value.play();
-        }
       }
     };
 
@@ -414,8 +410,7 @@ export default defineComponent({
         const barSpacing = (canvas.width / totalBars) * 0.4; // 间距为总宽度的40%
 
         for (let i = 0; i < totalBars; i++) {
-          const barHeight = (dataArray.value[i] / 255) * canvas.height *0.8;
-
+          const barHeight = (dataArray.value[i] / 255) * canvas.height * 0.8;
 
           // 使用 HSL 生成颜色，色相随索引平滑变化，降低亮度
           const hue = (i / totalBars) * 360; // 色相均匀分布 (0-360)
@@ -560,6 +555,7 @@ button {
   cursor: pointer;
   width: 100px;
   border: none;
+  transition: background 0.3s; /* 平滑过渡 */
 }
 
 button:focus {
@@ -582,6 +578,7 @@ button:hover {
   cursor: pointer;
   margin: 0 5px;
   width: 100px;
+  transition: background 0.3s; /* 平滑过渡 */
 }
 
 .custom-file-upload:hover {
@@ -631,6 +628,7 @@ button:hover {
   height: 5px;
   border-radius: 5px;
   cursor: pointer;
+  transition: background 0.3s; /* 平滑过渡 */
 }
 
 .progress-bar::-webkit-slider-thumb {
@@ -640,6 +638,10 @@ button:hover {
   background: #ffffff;
   border-radius: 50%;
   cursor: pointer;
+}
+
+.progress-bar:hover::-webkit-slider-thumb {
+  background: #22de9c; /* 鼠标悬停时滑块变色 */
 }
 
 .progress-bar:hover {
