@@ -74,9 +74,10 @@
     ref="audioElement"
     @timeupdate="updateProgressDisplay"
     @ended="onTrackEnd"
-    @loadedmetadata="initializeDuration"
+    @loadedmetadata="initializeAudio"
+    muted
+    autoplay
   ></audio>
-  
 </template>
 
 <script lang="ts">
@@ -156,54 +157,54 @@ export default defineComponent({
     const audioElement = ref<HTMLAudioElement | null>(null);
     const audioContext = ref<AudioContext | null>(null);
     const analyser = ref<AnalyserNode | null>(null);
-    const audioSource = ref<AudioBufferSourceNode | null>(null);
+    const audioSource = ref<MediaElementAudioSourceNode | null>(null);
     const isPlaying = ref(false);
     const currentTrackIndex = ref(0);
     const tracks = reactive<{ id: number; name: string; file: File }[]>([]);
     const dataArray = ref<Uint8Array | null>(null);
     const loopModes = ["单曲循环", "顺序循环", "随机播放"];
     const currentLoopMode = ref(0);
-    const progress = ref(0); // 进度条的当前值（0-100）
-    let trackDuration = 0; // 音频总时长
+    const progress = ref(0);
+    let trackDuration = 0;
+    let pausedTime = 0;
 
-    const updateProgressDisplay = () => {
-      if (audioContext.value && trackDuration > 0) {
-        progress.value = (audioContext.value.currentTime / trackDuration) * 100;
-      }
-    };
-
-    const seekTrack = () => {
-      if (!audioContext.value || trackDuration <= 0) return;
-
-      const seekTime = (progress.value / 100) * trackDuration; // 计算目标播放时间
-
-      // 停止当前播放
-      if (audioSource.value) {
-        audioSource.value.stop();
-        audioSource.value.disconnect();
+    const initializeAudio = () => {
+      if (!audioContext.value) {
+        audioContext.value = new (window.AudioContext ||
+          window.webkitAudioContext)();
       }
 
-      // 重新创建 audioSource 并从指定时间开始播放
-      loadTrack(currentTrackIndex.value).then(() => {
-        audioSource.value.start(0, seekTime); // 从 seekTime 开始播放
-        isPlaying.value = true;
-        startProgressUpdate(); // 重新开始更新进度条
-        visualize(); // 重新启动可视化效果
-      });
-    };
+      if (!audioSource.value && audioElement.value) {
+        audioSource.value = audioContext.value.createMediaElementSource(
+          audioElement.value
+        );
 
-    const startProgressUpdate = () => {
-      const update = () => {
-        if (audioContext.value && isPlaying.value) {
-          const currentTime = audioContext.value.currentTime;
-          progress.value = (currentTime / trackDuration) * 100; // 更新进度条
-          requestAnimationFrame(update);
+        if (!analyser.value) {
+          analyser.value = audioContext.value.createAnalyser();
+          analyser.value.fftSize = 512;
         }
-      };
-      update();
+
+        audioSource.value.connect(analyser.value);
+        analyser.value.connect(audioContext.value.destination);
+      }
     };
 
-    // 文件上传
+    const resetAudioContext = () => {
+      if (audioContext.value && audioContext.value.state !== "closed") {
+        audioContext.value.close();
+        audioContext.value = null;
+        audioSource.value = null;
+      }
+    };
+
+    const loadTrack = async (index: number) => {
+      if (audioElement.value) {
+        const track = tracks[index];
+        audioElement.value.src = URL.createObjectURL(track.file);
+        audioElement.value.load();
+      }
+    };
+
     const handleFileUpload = async (event: Event) => {
       const files = (event.target as HTMLInputElement).files;
       if (files) {
@@ -215,129 +216,117 @@ export default defineComponent({
       }
     };
 
-    // 加载音频
-    // 加载音频时设置总时长
-    const loadTrack = async (index: number) => {
-      if (!audioContext.value) {
-        audioContext.value = new (window.AudioContext ||
-          window.webkitAudioContext)();
-      }
-
+    const removeTrack = (index: number) => {
       const track = tracks[index];
-      const arrayBuffer = await track.file.arrayBuffer();
-      const buffer = await audioContext.value.decodeAudioData(arrayBuffer);
-
-      // 停止旧的音频源
-      if (audioSource.value) {
-        audioSource.value.stop();
-        audioSource.value.disconnect();
-      }
-
-      // 创建新的音频源
-      audioSource.value = audioContext.value.createBufferSource();
-      audioSource.value.buffer = buffer;
-
-      trackDuration = buffer.duration; // 更新歌曲时长
-      progress.value = 0; // 重置进度条
-
-      if (!analyser.value) {
-        analyser.value = audioContext.value.createAnalyser();
-        analyser.value.fftSize = 512;
-      }
-
-      audioSource.value.connect(analyser.value);
-      analyser.value.connect(audioContext.value.destination);
-
-      updateProgressDisplay(); // 初始化进度条显示
+      deleteTrackFromDB(track.id);
+      tracks.splice(index, 1);
     };
 
-    // 播放指定曲目
-    const playSpecificTrack = (index: number) => {
-      stopPlayback(); // 确保旧的音频被停止
-      currentTrackIndex.value = index; // 更新当前歌曲索引
-      progress.value = 0; // 重置进度条
-      loadTrack(index).then(() => {
-        startPlayback(); // 播放新歌
-      });
-    };
-
-    // 播放或暂停
-    const togglePlay = () => {
-      if (!audioSource.value) {
-        loadTrack(currentTrackIndex.value).then(() => {
-          startPlayback();
-        });
-      } else if (isPlaying.value) {
-        stopPlayback();
-      } else {
-        startPlayback();
+    const updateProgressDisplay = () => {
+      if (audioElement.value && !isNaN(audioElement.value.duration)) {
+        trackDuration = audioElement.value.duration;
+        progress.value = (audioElement.value.currentTime / trackDuration) * 100;
       }
     };
 
-    const startPlayback = () => {
-      if (!audioSource.value) return;
+    const seekTrack = () => {
+      if (audioElement.value) {
+        const seekTime = (progress.value / 100) * trackDuration;
+        audioElement.value.currentTime = seekTime;
 
-      audioSource.value.start(0);
-      isPlaying.value = true;
-      progress.value = 0; // 确保进度条重置
-      startProgressUpdate(); // 开始实时更新进度条
-      visualize();
-
-      // 监听播放结束事件
-      audioSource.value.onended = () => {
-        isPlaying.value = false;
-        if (currentLoopMode.value === 0) {
-          loadTrack(currentTrackIndex.value).then(() => startPlayback()); // 单曲循环
-        } else {
-          nextTrack(); // 播放下一首
+        if (isPlaying.value) {
+          audioElement.value.play();
         }
-      };
+      }
     };
 
-    const stopPlayback = () => {
-      if (audioSource.value) {
-        audioSource.value.stop();
-        audioSource.value.disconnect();
-        audioSource.value = null;
+    // 在播放按钮事件中调用
+    const togglePlay = async () => {
+      if (!audioContext.value) {
+        initializeAudio();
+      } else if (audioContext.value.state === "suspended") {
+        await audioContext.value.resume();
       }
-      isPlaying.value = false;
+
+      if (!audioElement.value) return;
+
+      try {
+        if (audioElement.value.muted) {
+          audioElement.value.muted = false; // 取消静音
+        }
+
+        if (isPlaying.value) {
+          audioElement.value.pause();
+          isPlaying.value = false;
+        } else {
+          await audioElement.value.play();
+          isPlaying.value = true;
+          visualize();
+        }
+      } catch (error) {
+        console.error("播放音频时出错:", error);
+      }
+    };
+
+    const playSpecificTrack = (index: number) => {
+      currentTrackIndex.value = index;
+      loadTrack(index);
+
+      if (audioElement.value) {
+        audioElement.value.oncanplaythrough = () => {
+          audioElement.value?.play();
+          isPlaying.value = true;
+        };
+      }
     };
 
     const toggleLoopMode = () => {
       currentLoopMode.value = (currentLoopMode.value + 1) % loopModes.length;
     };
 
-    const prevTrack = () => {
-      if (currentLoopMode.value === 2) {
-        const randomIndex = Math.floor(Math.random() * tracks.length);
-        currentTrackIndex.value = randomIndex;
-      } else {
-        currentTrackIndex.value =
-          (currentTrackIndex.value - 1 + tracks.length) % tracks.length;
-      }
-      loadTrack(currentTrackIndex.value).then(() => {
-        startPlayback();
-      });
-    };
-
     const nextTrack = () => {
+      const trackCount = tracks.length;
+      if (trackCount === 0) return;
+
+      let nextIndex;
       if (currentLoopMode.value === 2) {
-        const randomIndex = Math.floor(Math.random() * tracks.length);
-        currentTrackIndex.value = randomIndex;
+        // 随机播放
+        nextIndex = Math.floor(Math.random() * trackCount);
       } else {
-        currentTrackIndex.value = (currentTrackIndex.value + 1) % tracks.length;
+        nextIndex = (currentTrackIndex.value + 1) % trackCount;
       }
-      progress.value = 0; // 从头开始播放时，重置进度条
-      loadTrack(currentTrackIndex.value).then(() => {
-        startPlayback();
-      });
+
+      playSpecificTrack(nextIndex);
     };
 
-    // 删除曲目
-    const removeTrack = (index: number) => {
-      const track = tracks[index];
-      deleteTrackFromDB(track.id);
-      tracks.splice(index, 1);
+    const prevTrack = () => {
+      const trackCount = tracks.length;
+      if (trackCount === 0) return;
+
+      let prevIndex;
+      if (currentLoopMode.value === 2) {
+        // 随机播放
+        prevIndex = Math.floor(Math.random() * trackCount);
+      } else {
+        prevIndex = (currentTrackIndex.value - 1 + trackCount) % trackCount;
+      }
+
+      playSpecificTrack(prevIndex);
+    };
+
+    const onTrackEnd = () => {
+      switch (currentLoopMode.value) {
+        case 0: // 单曲循环
+          if (audioElement.value) {
+            audioElement.value.currentTime = 0;
+            audioElement.value.play();
+          }
+          break;
+        case 1: // 顺序循环
+        case 2: // 随机播放
+          nextTrack();
+          break;
+      }
     };
 
     const visualize = () => {
@@ -349,16 +338,15 @@ export default defineComponent({
       canvas.width = 600;
       canvas.height = 600;
 
-      const centerX = canvas.width / 2; // 画布中心 X
-      const centerY = canvas.height / 2; // 画布中心 Y
-      const radiusX = canvas.width / 3; // X方向半径
-      const radiusY = canvas.height / 3; // Y方向半径
-      const minBarLength = 10; // 条形最小长度
-      const maxBarLength = 100; // 条形最大长度
+      const centerX = canvas.width / 2;
+      const centerY = canvas.height / 2;
+      const radiusX = canvas.width / 3;
+      const radiusY = canvas.height / 3;
+      const minBarLength = 10;
+      const maxBarLength = 100;
 
       const bufferLength = analyser.value.frequencyBinCount;
       dataArray.value = new Uint8Array(bufferLength);
-      console.log(bufferLength);
 
       const draw = () => {
         if (!isPlaying.value) return;
@@ -366,70 +354,72 @@ export default defineComponent({
         analyser.value.getByteFrequencyData(dataArray.value);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        const totalAngle = Math.PI * 2; // 360° 全圆
-        const segmentAngle = ((totalAngle / bufferLength) * 4) / 3; // 每根条形所占的角度
+        const totalAngle = Math.PI * 2;
+        const segmentAngle = ((totalAngle / bufferLength) * 4) / 3;
 
-        //取多少根采样
         for (let i = 0; i < 192; i++) {
           const value = Math.max(dataArray.value[i], 5);
 
-          // 将条形长度限制在最小值和最大值之间
           const barLength = Math.min(
             maxBarLength,
             Math.max(minBarLength, value / 2)
           );
 
-          // 将四分之三圆的数据展开到完整圆周
-          const angle = i * segmentAngle; // 角度计算公式
+          const angle = i * segmentAngle;
 
-          // 计算条形的起点坐标（圆周上的点）
           const x1 = centerX + Math.cos(angle) * radiusX;
           const y1 = centerY + Math.sin(angle) * radiusY;
 
-          // 计算条形的终点坐标（圆周外延伸的点）
           const x2 = centerX + Math.cos(angle) * (radiusX + barLength);
           const y2 = centerY + Math.sin(angle) * (radiusY + barLength);
 
-          // 创建渐变色
           const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
-          gradient.addColorStop(0, "#cc53ae"); // 起点颜色
-          gradient.addColorStop(1, "#22de9c"); // 终点颜色
+          gradient.addColorStop(0, "#cc53ae");
+          gradient.addColorStop(1, "#22de9c");
           ctx.strokeStyle = gradient;
 
-          // 设置线条的宽度
           ctx.lineWidth = 3;
 
-          // 开始绘制条形
           ctx.beginPath();
           ctx.moveTo(x1, y1);
           ctx.lineTo(x2, y2);
           ctx.stroke();
         }
 
-        // 递归调用，持续更新画面
         requestAnimationFrame(draw);
       };
 
-      draw();
+      if (isPlaying.value) {
+        draw();
+      }
     };
 
-    // 初始化数据库
     onMounted(async () => {
       await openDB();
       const savedTracks = await getTracksFromDB();
       tracks.push(...savedTracks);
 
-      const canvas = document.getElementById("visualizer") as HTMLCanvasElement;
-      canvas.width = window.innerWidth; // 设置 canvas 宽度为窗口宽度
-      canvas.height = window.innerHeight / 2; // 设置 canvas 高度为窗口高度的一半
+      document.body.addEventListener(
+        "click",
+        () => {
+          if (!audioContext.value) {
+            initializeAudio(); // 确保只初始化一次
+          }
+        },
+        { once: true } // 确保事件只执行一次
+      );
 
-      window.addEventListener("resize", () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight / 2;
-      });
+      if (audioElement.value) {
+        audioElement.value.addEventListener(
+          "timeupdate",
+          updateProgressDisplay
+        );
+        audioElement.value.addEventListener("ended", onTrackEnd);
+      }
     });
 
     return {
+      audioElement,
       handleFileUpload,
       togglePlay,
       toggleLoopMode,
@@ -445,6 +435,8 @@ export default defineComponent({
       updateProgressDisplay,
       seekTrack,
       progress,
+      onTrackEnd,
+      initializeAudio,
     };
   },
 });
@@ -485,7 +477,7 @@ canvas {
 }
 
 .controls {
-  margin-top: 100px;
+  margin-top: 30px;
   width: 30%;
   display: flex;
   flex-direction: row;
