@@ -1,6 +1,12 @@
 <template>
   <div class="container">
     <div class="player">
+      <div class="visualizer-controls">
+        <button @click="toggleVisualizerType">
+          <span class="mdi mdi-autorenew"></span>
+        </button>
+      </div>
+
       <canvas id="visualizer"></canvas>
       <div class="control_list">
         <!-- 播放进度条 -->
@@ -167,6 +173,12 @@ export default defineComponent({
     const progress = ref(0);
     let trackDuration = 0;
     let pausedTime = 0;
+    const visualizerType = ref<"circle" | "tree">("circle"); // 当前可视化类型
+
+    const toggleVisualizerType = () => {
+      visualizerType.value =
+        visualizerType.value === "circle" ? "tree" : "circle";
+    };
 
     const initializeAudio = () => {
       if (!audioContext.value) {
@@ -338,13 +350,6 @@ export default defineComponent({
       canvas.width = 600;
       canvas.height = 600;
 
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      const radiusX = canvas.width / 3;
-      const radiusY = canvas.height / 3;
-      const minBarLength = 10;
-      const maxBarLength = 100;
-
       const bufferLength = analyser.value.frequencyBinCount;
       dataArray.value = new Uint8Array(bufferLength);
 
@@ -354,39 +359,79 @@ export default defineComponent({
         analyser.value.getByteFrequencyData(dataArray.value);
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+        if (visualizerType.value === "circle") {
+          drawCircleVisualizer(ctx, bufferLength);
+        } else if (visualizerType.value === "tree") {
+          drawTreeVisualizer(ctx, bufferLength);
+        }
+
+        requestAnimationFrame(draw);
+      };
+
+      const drawCircleVisualizer = (
+        ctx: CanvasRenderingContext2D,
+        bufferLength: number
+      ) => {
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+        const radius = canvas.width / 3;
+
+        // 每个频谱条的角度 取了部分进行延伸
         const totalAngle = Math.PI * 2;
         const segmentAngle = ((totalAngle / bufferLength) * 4) / 3;
 
         for (let i = 0; i < 192; i++) {
           const value = Math.max(dataArray.value[i], 5);
-
-          const barLength = Math.min(
-            maxBarLength,
-            Math.max(minBarLength, value / 2)
-          );
+          const barLength = value / 2;
 
           const angle = i * segmentAngle;
+          const x1 = centerX + Math.cos(angle) * radius;
+          const y1 = centerY + Math.sin(angle) * radius;
+          const x2 = centerX + Math.cos(angle) * (radius + barLength);
+          const y2 = centerY + Math.sin(angle) * (radius + barLength);
 
-          const x1 = centerX + Math.cos(angle) * radiusX;
-          const y1 = centerY + Math.sin(angle) * radiusY;
-
-          const x2 = centerX + Math.cos(angle) * (radiusX + barLength);
-          const y2 = centerY + Math.sin(angle) * (radiusY + barLength);
-
+          //ctx.strokeStyle = `hsl(${i * 2}, 100%, 50%)`; // 彩色
+          // 创建两种颜色的渐变
           const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
-          gradient.addColorStop(0, "#cc53ae");
-          gradient.addColorStop(1, "#22de9c");
+          gradient.addColorStop(0, "#cc53ae"); // 第一种颜色
+          gradient.addColorStop(1, "#22de9c"); // 第二种颜色
+
           ctx.strokeStyle = gradient;
-
           ctx.lineWidth = 3;
-
           ctx.beginPath();
           ctx.moveTo(x1, y1);
           ctx.lineTo(x2, y2);
           ctx.stroke();
         }
+      };
 
-        requestAnimationFrame(draw);
+      const drawTreeVisualizer = (
+        ctx: CanvasRenderingContext2D,
+        bufferLength: number
+      ) => {
+        const totalBars = bufferLength / 2; // 减少柱子的数量（可选）
+        const barWidth = (canvas.width / totalBars) * 0.6; // 增加柱子的宽度
+        const barSpacing = (canvas.width / totalBars) * 0.4; // 间距为总宽度的40%
+
+        for (let i = 0; i < totalBars; i++) {
+          const barHeight = (dataArray.value[i] / 255) * canvas.height *0.8;
+
+
+          // 使用 HSL 生成颜色，色相随索引平滑变化，降低亮度
+          const hue = (i / totalBars) * 360; // 色相均匀分布 (0-360)
+          const saturation = 100; // 饱和度设为 80%
+          const lightness = 40; // 亮度设为 40%，避免过于亮眼
+
+          ctx.fillStyle = `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+
+          // 绘制柱状条，增加间距
+          ctx.fillRect(
+            i * (barWidth + barSpacing), // x 位置
+            canvas.height - barHeight, // y 位置
+            barWidth, // 宽度
+            barHeight // 高度
+          );
+        }
       };
 
       if (isPlaying.value) {
@@ -437,6 +482,7 @@ export default defineComponent({
       progress,
       onTrackEnd,
       initializeAudio,
+      toggleVisualizerType,
     };
   },
 });
@@ -459,6 +505,18 @@ export default defineComponent({
   flex-direction: row;
   display: flex;
   justify-content: center;
+}
+
+.visualizer-controls button {
+  background-color: transparent;
+  color: white;
+  border: none;
+  cursor: pointer;
+  font-size: 24px;
+}
+
+.visualizer-controls button:hover {
+  color: #22de9c;
 }
 
 canvas {
@@ -510,6 +568,7 @@ button:focus {
 
 button:hover {
   background-color: #b6b6b636;
+  color: #22de9c;
 }
 
 .custom-file-upload {
@@ -527,6 +586,8 @@ button:hover {
 
 .custom-file-upload:hover {
   background-color: #b6b6b636;
+  color: #22de9c;
+  height: 90px;
 }
 
 .custom-file-upload input {
