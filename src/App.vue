@@ -86,6 +86,10 @@
     @ended="onTrackEnd"
     @loadedmetadata="initializeAudio"
   ></audio>
+  <footer class="footer">
+    <!-- <p>&copy; 2024 版权所有 | LynxHawk's Player</p> -->
+    <p>&copy; LynxHawk's Player</p>
+  </footer>
 </template>
 
 <script lang="ts">
@@ -663,7 +667,6 @@ button:hover {
   color: #22de9c;
 }
 
-
 .custom-file-upload input {
   display: none;
 }
@@ -748,9 +751,14 @@ button:hover {
 }
 
 .playlist li span {
-  margin-left: 10px;
   cursor: pointer;
   font-size: 25px;
+  opacity: 0; /* 初始透明 */
+  transition: opacity 0.1s ease-in-out; /* 平滑过渡 */
+}
+
+.playlist li:hover span {
+  opacity: 1; /* 鼠标悬停时显示 */
 }
 
 .progress-bar {
@@ -780,4 +788,24 @@ button:hover {
 .progress-bar:hover {
   background: #666;
 }
+
+.footer {
+  position: fixed; /* 固定在页面底部 */
+  bottom: 0; /* 距离底部 0px */
+  left: 0; /* 从左侧开始 */
+  width: 100%; /* 宽度占满整个页面 */
+  background-color: #000000; /* 背景颜色 */
+  color: #22de9c; /* 字体颜色 */
+  text-align: center; /* 文本居中 */
+  padding: 10px 0; /* 上下内边距 */
+  font-size: 14px; /* 字体大小 */
+  box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.3); /* 添加阴影，提升立体感 */
+  z-index: 1000; /* 确保不会被其他内容覆盖 */
+}
+
+.footer p {
+  margin: 0; /* 去掉段落默认外边距 */
+  line-height: 1.5; /* 设置行高 */
+}
+
 </style>
