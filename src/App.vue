@@ -739,10 +739,11 @@ button:hover {
 
 .playlist li {
   cursor: pointer;
-  padding: 10px 10px 10px 10px;
+  padding: 10px 10px;
   display: flex;
   justify-content: space-between;
   align-items: center;
+  position: relative; /* 为 span 绝对定位提供参考 */
 }
 
 .playlist li.playing {
@@ -751,14 +752,18 @@ button:hover {
 }
 
 .playlist li span {
-  cursor: pointer;
-  font-size: 25px;
   opacity: 0; /* 初始透明 */
-  transition: opacity 0.1s ease-in-out; /* 平滑过渡 */
+  transition: opacity 0.2s ease-in-out; /* 平滑过渡 */
+  font-size: 25px;
+  pointer-events: auto; /* 确保按钮可接收鼠标事件 */
 }
 
 .playlist li:hover span {
-  opacity: 1; /* 鼠标悬停时显示 */
+  opacity: 1; /* 鼠标悬停在 li 上时按钮可见 */
+}
+
+.playlist li span:hover {
+  opacity: 1; /* 鼠标悬停在按钮上时保持显示 */
 }
 
 .progress-bar {
@@ -807,5 +812,4 @@ button:hover {
   margin: 0; /* 去掉段落默认外边距 */
   line-height: 1.5; /* 设置行高 */
 }
-
 </style>
