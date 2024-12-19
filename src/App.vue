@@ -93,7 +93,7 @@
 </template>
 
 <script lang="ts">
-import { defineComponent, ref, reactive, onMounted, watch } from "vue";
+import { defineComponent, ref, reactive, onMounted } from "vue";
 
 const DB_NAME = "MusicPlayerDB";
 const STORE_NAME = "Tracks";
@@ -417,7 +417,9 @@ export default defineComponent({
 
         if (analyser.value) {
           // 如果有音频输入，获取真实数据
-          analyser.value.getByteFrequencyData(dataArray.value);
+          if (dataArray.value) {
+            analyser.value.getByteFrequencyData(dataArray.value);
+          }
         } else {
           // 如果没有音频输入，填充最小值
           dataArray.value = new Uint8Array(bufferLength).fill(5);
@@ -445,7 +447,7 @@ export default defineComponent({
         const segmentAngle = ((totalAngle / bufferLength) * 4) / 3;
 
         for (let i = 0; i < 192; i++) {
-          const value = Math.max(dataArray.value[i], 5);
+          const value = dataArray.value ? Math.max(dataArray.value[i], 5) : 5;
           const barLength = value / 2;
 
           const angle = i * segmentAngle;
@@ -478,7 +480,7 @@ export default defineComponent({
         const barSpacing = (canvas.width / totalBars) * 0.4; // 间距为总宽度的40%
 
         for (let i = 0; i < totalBars; i++) {
-          const barHeight = (dataArray.value[i] / 255) * canvas.height * 0.8;
+          const barHeight = (dataArray.value ? (dataArray.value[i] / 255) * canvas.height * 0.8 : 0);
 
           // 使用 HSL 生成颜色，色相随索引平滑变化，降低亮度
           const hue = (i / totalBars) * 360; // 色相均匀分布 (0-360)
@@ -799,17 +801,21 @@ button:hover {
   bottom: 0; /* 距离底部 0px */
   left: 0; /* 从左侧开始 */
   width: 100%; /* 宽度占满整个页面 */
-  background-color: #000000; /* 背景颜色 */
   color: #22de9c; /* 字体颜色 */
   text-align: center; /* 文本居中 */
   padding: 10px 0; /* 上下内边距 */
   font-size: 14px; /* 字体大小 */
   box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.3); /* 添加阴影，提升立体感 */
   z-index: 1000; /* 确保不会被其他内容覆盖 */
+  background: 
+    linear-gradient(to right, #003366, #663399, #ff66cc, #ff9933), /* 水平颜色渐变 */
+    linear-gradient(to bottom, rgba(19, 9, 6, 1)0%, rgba(16, 9, 6, 0.5) 100%); /* 垂直方向渐变调整比例 */ 
+  background-blend-mode: multiply; /* 混合模式叠加 */
+  height: 50px;
 }
 
 .footer p {
-  margin: 0; /* 去掉段落默认外边距 */
+  margin: 30px; /* 去掉段落默认外边距 */
   line-height: 1.5; /* 设置行高 */
 }
 </style>
