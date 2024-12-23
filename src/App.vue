@@ -101,6 +101,7 @@ const DB_VERSION = 1;
 
 let db: IDBDatabase | null = null;
 
+//打开数据库
 const openDB = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     const request = indexedDB.open(DB_NAME, DB_VERSION);
@@ -126,6 +127,7 @@ const openDB = (): Promise<IDBDatabase> => {
   });
 };
 
+//添加音乐到数据库
 const addTrackToDB = (track: { name: string; file: File }) => {
   if (!db) return;
   const transaction = db.transaction(STORE_NAME, "readwrite");
@@ -133,6 +135,7 @@ const addTrackToDB = (track: { name: string; file: File }) => {
   store.add(track);
 };
 
+//从数据库获取音乐
 const getTracksFromDB = (): Promise<
   { id: number; name: string; file: File }[]
 > => {
@@ -156,6 +159,7 @@ const getTracksFromDB = (): Promise<
   });
 };
 
+//从数据库删除音乐
 const deleteTrackFromDB = (id: number) => {
   if (!db) return;
   const transaction = db.transaction(STORE_NAME, "readwrite");
@@ -166,22 +170,31 @@ const deleteTrackFromDB = (id: number) => {
 export default defineComponent({
   name: "App",
   setup() {
-    const audioElement = ref<HTMLAudioElement | null>(null);
-    const audioContext = ref<AudioContext | null>(null);
-    const analyser = ref<AnalyserNode | null>(null);
-    const audioSource = ref<MediaElementAudioSourceNode | null>(null);
-    const isPlaying = ref(false);
-    const currentTrackIndex = ref(0);
-    const tracks = reactive<{ id: number; name: string; file: File }[]>([]);
-    const dataArray = ref<Uint8Array | null>(null);
+    //音频播放和分析相关变量
+    const audioElement = ref<HTMLAudioElement | null>(null); //引用 <audio> 元素，用于控制音频播放和管理音频事件（如播放、暂停、结束等）。
+    const audioContext = ref<AudioContext | null>(null); //Web Audio API 的核心对象，用于创建和控制音频处理管道。
+    const analyser = ref<AnalyserNode | null>(null); //Web Audio API 的音频分析节点，用于生成音频数据（如频率和时间域数据），主要用于音频可视化。
+    const audioSource = ref<MediaElementAudioSourceNode | null>(null); //Web Audio API 中的音频源节点，将 <audio> 元素连接到音频处理管道。
+    const dataArray = ref<Uint8Array | null>(null); //用于存储音频频率数据或波形数据，由 AnalyserNode 生成，用于可视化处理。
+    
+    //播放状态相关变量
+    const isPlaying = ref(false); //当前音频是否正在播放的状态标志。
+    const currentTrackIndex = ref(0); //当前正在播放的音轨索引，用于从播放列表中选择音轨。
+
+    //播放列表相关变量
+    const tracks = reactive<{ id: number; name: string; file: File }[]>([]); //播放列表，存储音轨信息的数组，包括 ID、名称和文件对象。
     const loopModes = ["顺序循环", "随机播放", "单曲循环"];
     const currentLoopMode = ref(0);
+
+    //进度条相关变量
     const progress = ref(0);
-    let trackDuration = 0;
-    const visualizerType = ref<"circle" | "tree">("circle"); // 当前可视化类型
+    let trackDuration = 0; //当前音轨的总时长（秒），用于计算进度和调整播放位置。
+
+    const visualizerType = ref<"circle" | "tree">("circle"); // 当前可视化类型 circle or tree
 
     let autoScrollEnabled = true; // 标志位：控制是否自动滚动
 
+    //自动滚动到当前音轨
     const scrollToCurrentTrack = () => {
       if (!autoScrollEnabled) return; // 如果用户手动滚动，不自动滚动
 
@@ -197,7 +210,8 @@ export default defineComponent({
         });
       }
     };
-
+    
+    //禁用自动滚动
     const disableAutoScroll = () => {
       autoScrollEnabled = false;
 
@@ -208,11 +222,13 @@ export default defineComponent({
       }, 1000);
     };
 
+    //切换可视化类型
     const toggleVisualizerType = () => {
       visualizerType.value =
         visualizerType.value === "circle" ? "tree" : "circle";
     };
 
+    //初始化音频上下文和音频源
     const initializeAudio = () => {
       if (!audioContext.value) {
         audioContext.value = new (window.AudioContext ||
@@ -235,6 +251,7 @@ export default defineComponent({
       }
     };
 
+    //加载音轨
     const loadTrack = async (index: number) => {
       if (audioElement.value) {
         const track = tracks[index];
@@ -249,6 +266,8 @@ export default defineComponent({
         console.log("音频加载完成");
       }
     };
+
+    //处理文件上传
     const handleFileUpload = async (event: Event) => {
       const files = (event.target as HTMLInputElement).files;
       if (files) {
@@ -260,12 +279,14 @@ export default defineComponent({
       }
     };
 
+    //删除音轨
     const removeTrack = (index: number) => {
       const track = tracks[index];
       deleteTrackFromDB(track.id);
       tracks.splice(index, 1);
     };
 
+    //更新播放进度显示
     const updateProgressDisplay = () => {
       if (audioElement.value && !isNaN(audioElement.value.duration)) {
         trackDuration = audioElement.value.duration; // 更新音频总时长
@@ -273,6 +294,7 @@ export default defineComponent({
       }
     };
 
+    //调整音轨进度到指定位置
     const seekTrack = () => {
       if (audioElement.value) {
         const seekTime = (progress.value / 100) * trackDuration;
@@ -321,6 +343,7 @@ export default defineComponent({
       }
     };
 
+    //播放指定音轨
     const playSpecificTrack = (index: number) => {
       currentTrackIndex.value = index;
       loadTrack(index);
@@ -335,10 +358,12 @@ export default defineComponent({
       }
     };
 
+    //切换循环模式
     const toggleLoopMode = () => {
       currentLoopMode.value = (currentLoopMode.value + 1) % loopModes.length;
     };
 
+    //播放下一首音轨
     const nextTrack = () => {
       const trackCount = tracks.length;
       if (trackCount === 0) return;
@@ -354,6 +379,7 @@ export default defineComponent({
       playSpecificTrack(nextIndex);
     };
 
+    //播放上一首音轨
     const prevTrack = () => {
       const trackCount = tracks.length;
       if (trackCount === 0) return;
@@ -371,6 +397,7 @@ export default defineComponent({
 
     let trackEnding = false; // 防止重复触发标志
 
+    //音轨播放结束事件处理
     const onTrackEnd = () => {
       if (trackEnding) return; // 避免重复调用
       trackEnding = true;
@@ -397,6 +424,7 @@ export default defineComponent({
       }, 100); // 加入小延时，确保状态正确
     };
 
+    //可视化处理
     const visualize = () => {
       const canvas = document.getElementById("visualizer") as HTMLCanvasElement;
       const ctx = canvas.getContext("2d");
@@ -471,6 +499,7 @@ export default defineComponent({
         }
       };
 
+      // 绘制树状可视化
       const drawTreeVisualizer = (
         ctx: CanvasRenderingContext2D,
         bufferLength: number
@@ -504,6 +533,7 @@ export default defineComponent({
       }
     };
 
+    //在组件挂载后执行
     onMounted(async () => {
       await openDB();
       const savedTracks = await getTracksFromDB();
