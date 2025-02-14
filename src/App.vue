@@ -176,7 +176,7 @@ export default defineComponent({
     const analyser = ref<AnalyserNode | null>(null); //Web Audio API 的音频分析节点，用于生成音频数据（如频率和时间域数据），主要用于音频可视化。
     const audioSource = ref<MediaElementAudioSourceNode | null>(null); //Web Audio API 中的音频源节点，将 <audio> 元素连接到音频处理管道。
     const dataArray = ref<Uint8Array | null>(null); //用于存储音频频率数据或波形数据，由 AnalyserNode 生成，用于可视化处理。
-    
+
     //播放状态相关变量
     const isPlaying = ref(false); //当前音频是否正在播放的状态标志。
     const currentTrackIndex = ref(0); //当前正在播放的音轨索引，用于从播放列表中选择音轨。
@@ -210,7 +210,7 @@ export default defineComponent({
         });
       }
     };
-    
+
     //禁用自动滚动
     const disableAutoScroll = () => {
       autoScrollEnabled = false;
@@ -509,7 +509,9 @@ export default defineComponent({
         const barSpacing = (canvas.width / totalBars) * 0.4; // 间距为总宽度的40%
 
         for (let i = 0; i < totalBars; i++) {
-          const barHeight = (dataArray.value ? (dataArray.value[i] / 255) * canvas.height * 0.8 : 0);
+          const barHeight = dataArray.value
+            ? (dataArray.value[i] / 255) * canvas.height * 0.8
+            : 0;
 
           // 使用 HSL 生成颜色，色相随索引平滑变化，降低亮度
           const hue = (i / totalBars) * 360; // 色相均匀分布 (0-360)
@@ -612,12 +614,19 @@ export default defineComponent({
   margin: 0 auto;
 }
 
+.visualizer-controls {
+  display: flex;
+  justify-content: center; /* 控件居中 */
+  width: 85%; /* 确保控件占据整个宽度 */
+}
+
 .visualizer-controls button {
   background-color: transparent;
   color: white;
   border: none;
   cursor: pointer;
   font-size: 24px;
+  height:100px;
 }
 
 .visualizer-controls button:hover {
@@ -705,7 +714,7 @@ button:hover {
 
 .playlist {
   text-align: left;
-  width: 600px;
+  width: 100%;
   max-height: 380px;
   overflow-y: auto;
   transition: all 0.3s ease-in-out;
@@ -837,9 +846,9 @@ button:hover {
   font-size: 14px; /* 字体大小 */
   box-shadow: 0 -2px 5px rgba(0, 0, 0, 0.3); /* 添加阴影，提升立体感 */
   z-index: 1000; /* 确保不会被其他内容覆盖 */
-  background: 
-    linear-gradient(to right, #003366, #663399, #ff66cc, #ff9933), /* 水平颜色渐变 */
-    linear-gradient(to bottom, rgba(19, 9, 6, 1)0%, rgba(16, 9, 6, 0.5) 100%); /* 垂直方向渐变调整比例 */ 
+  background: linear-gradient(to right, #003366, #663399, #ff66cc, #ff9933),
+    /* 水平颜色渐变 */
+      linear-gradient(to bottom, rgba(19, 9, 6, 1) 0%, rgba(16, 9, 6, 0.5) 100%); /* 垂直方向渐变调整比例 */
   background-blend-mode: multiply; /* 混合模式叠加 */
   height: 50px;
 }
@@ -847,5 +856,63 @@ button:hover {
 .footer p {
   margin: 30px; /* 去掉段落默认外边距 */
   line-height: 1.5; /* 设置行高 */
+}
+
+/* 媒体查询：屏幕宽度小于等于 768px 时 */
+@media (max-width: 768px) {
+  .player {
+    flex-direction: column; /* 改为竖直排列 */
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+  }
+
+  canvas {
+    width: 80%; /* 画布宽度适应小屏幕 */
+    height: 300px; /* 画布高度减小 */
+    margin-right: 0;
+    margin-bottom: 20px;
+  }
+
+  .control_list {
+    max-width: 100%;
+  }
+
+  button span.mdi,
+  .custom-file-upload span.mdi {
+    font-size: 40px; /* 图标大小 */
+  }
+
+  button {
+    padding: 0px 5px;
+  }
+
+  .visualizer-controls button {
+    margin-right: auto; /* 按钮左对齐 */
+    width: 70px;
+    height: 70px;
+  }
+
+  .custom-file-upload {
+    height: 60%;
+    width: 20%;
+    padding: 0px 15px;
+  }
+
+  span.mdi.mdi-folder-music::before {
+    height: 80%;
+  }
+
+  .progress-bar {
+    width: 80%; /* 进度条宽度适应屏幕 */
+  }
+
+  .playlist-title {
+    width: 90%;
+  }
+
+  .playlist {
+    width: 90%;
+  }
 }
 </style>
