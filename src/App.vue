@@ -68,7 +68,7 @@
               :class="{ playing: index === currentTrackIndex }"
               @click="playSpecificTrack(index)"
             >
-              {{ track.name }}
+              <div class="track-name">{{ track.name }}</div>
               <span
                 @click.stop="removeTrack(index)"
                 class="mdi mdi-trash-can-outline"
@@ -626,10 +626,11 @@ export default defineComponent({
   border: none;
   cursor: pointer;
   font-size: 24px;
-  height:100px;
+  height: 100px;
 }
 
 .visualizer-controls button:hover {
+  background-color: #b6b6b636;
   color: #22de9c;
 }
 
@@ -681,7 +682,7 @@ button:focus {
   outline: none; /* 确保点击聚焦时也没有白边 */
 }
 
-button:hover {
+.control_list button:hover {
   background-color: #b6b6b636;
   color: #22de9c;
 }
@@ -807,6 +808,11 @@ button:hover {
   opacity: 1; /* 鼠标悬停在按钮上时保持显示 */
 }
 
+.track-name {
+  flex-grow: 1;
+  overflow: hidden;
+}
+
 .progress-bar {
   width: 100%;
   margin: 20px 0px 10px 0px;
@@ -887,10 +893,28 @@ button:hover {
     padding: 0px 5px;
   }
 
+  .visualizer-controls {
+    width: 100%; /* 确保容器宽度 */
+    display: flex;
+    justify-content: flex-start; /* 左对齐 */
+    margin-bottom: 10px; /* 添加底部间距 */
+  }
+
   .visualizer-controls button {
-    margin-right: auto; /* 按钮左对齐 */
-    width: 70px;
-    height: 70px;
+    width: 40px;
+    height: 40px;
+    font-size: 20px; /* 减小图标大小 */
+    padding: 0; /* 移除内边距 */
+    margin: 0 0 0 40px; /* 移除外边距 */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* 确保移动端的 hover 效果一致 */
+  .visualizer-controls button:hover {
+    background-color: #b6b6b636;
+    color: #22de9c;
   }
 
   .custom-file-upload {
@@ -913,6 +937,22 @@ button:hover {
 
   .playlist {
     width: 90%;
+    height: 200px;
+  }
+
+  .track-name {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.5;
+  }
+
+  .footer {
+    height: 20px;
+  }
+
+  .footer p {
+    margin: 0;
   }
 }
 </style>
