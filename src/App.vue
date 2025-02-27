@@ -737,7 +737,6 @@ button:focus {
 }
 
 .playlist-title span {
-  margin-left: 10px;
   font-size: 35px;
 }
 
@@ -871,17 +870,22 @@ button:focus {
     align-items: center;
     justify-content: center;
     max-width: 100%;
+    width: 95%; /* 确保宽度100% */
+    padding: 0 15px; /* 添加左右内边距 */
+    box-sizing: border-box; /* 确保内边距计入宽度 */
   }
 
   canvas {
-    width: 80%; /* 画布宽度适应小屏幕 */
-    height: 300px; /* 画布高度减小 */
+    width: 300px; /* 画布宽度100% */
+    height: 300px;
     margin-right: 0;
     margin-bottom: 20px;
   }
 
   .control_list {
-    max-width: 100%;
+    width: 100%; /* 宽度100% */
+    max-width: 400px; /* 最大宽度限制 */
+    padding: 0; /* 移除内边距 */
   }
 
   /* 修改图标样式，确保所有图标居中 */
@@ -908,15 +912,13 @@ button:focus {
 
   /* 控制按钮容器样式 */
   .controls {
-    width: 100%;
-    display: flex;
-    justify-content: center;
-    align-items: center;
+    width: 90%; /* 宽度100% */
+    justify-content: space-between; /* 两端对齐 */
+    padding: 0; /* 移除内边距 */
   }
 
   .visualizer-controls {
-    width: 100%;
-    display: flex;
+    width: 100%; /* 宽度100% */
     justify-content: flex-start;
     margin-bottom: 10px;
   }
@@ -924,8 +926,7 @@ button:focus {
   .visualizer-controls button {
     width: 50px;
     height: 50px;
-    font-size: 20px;
-    margin: 0 0 0 40px;
+    font-size: 40px;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -942,21 +943,16 @@ button:focus {
     align-items: center;
   }
 
-  /* 移除可能干扰的额外样式 */
-  span.mdi.mdi-folder-music::before {
-    height: auto;
-  }
-
   .progress-bar {
-    width: 80%;
-  }
-
-  .playlist-title {
     width: 90%;
   }
 
+  .playlist-title {
+    width: 100%;
+  }
+
   .playlist {
-    width: 80%;
+    width: 100%;
     height: 200px;
   }
 
