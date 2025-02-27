@@ -884,51 +884,71 @@ button:focus {
     max-width: 100%;
   }
 
+  /* 修改图标样式，确保所有图标居中 */
   button span.mdi,
   .custom-file-upload span.mdi {
-    font-size: 40px; /* 图标大小 */
-  }
-
-  button {
-    padding: 0px 5px;
-  }
-
-  .visualizer-controls {
-    width: 100%; /* 确保容器宽度 */
+    font-size: 30px; /* 减小图标大小 */
     display: flex;
-    justify-content: flex-start; /* 左对齐 */
-    margin-bottom: 10px; /* 添加底部间距 */
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
   }
 
-  .visualizer-controls button {
-    width: 40px;
-    height: 40px;
-    font-size: 20px; /* 减小图标大小 */
-    padding: 0; /* 移除内边距 */
-    margin: 0 0 0 40px; /* 移除外边距 */
+  /* 统一基本按钮样式 */
+  button {
+    width: 50px; /* 统一宽度 */
+    height: 50px; /* 统一高度为方形 */
+    padding: 0;
+    margin: 0 3px;
     display: flex;
     justify-content: center;
     align-items: center;
   }
 
-  /* 确保移动端的 hover 效果一致 */
-  .visualizer-controls button:hover {
-    background-color: #b6b6b636;
-    color: #22de9c;
+  /* 控制按钮容器样式 */
+  .controls {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
+  .visualizer-controls {
+    width: 100%;
+    display: flex;
+    justify-content: flex-start;
+    margin-bottom: 10px;
+  }
+
+  .visualizer-controls button {
+    width: 50px;
+    height: 50px;
+    font-size: 20px;
+    margin: 0 0 0 40px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+
+  /* 文件上传按钮样式统一 */
   .custom-file-upload {
-    height: 60%;
-    width: 20%;
-    padding: 0px 15px;
+    width: 50px;
+    height: 50px;
+    padding: 0;
+    margin: 0 3px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
   }
 
+  /* 移除可能干扰的额外样式 */
   span.mdi.mdi-folder-music::before {
-    height: 80%;
+    height: auto;
   }
 
   .progress-bar {
-    width: 80%; /* 进度条宽度适应屏幕 */
+    width: 80%;
   }
 
   .playlist-title {
@@ -936,7 +956,7 @@ button:focus {
   }
 
   .playlist {
-    width: 90%;
+    width: 80%;
     height: 200px;
   }
 
