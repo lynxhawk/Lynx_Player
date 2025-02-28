@@ -232,7 +232,7 @@ export default defineComponent({
     const initializeAudio = () => {
       if (!audioContext.value) {
         audioContext.value = new (window.AudioContext ||
-          window.webkitAudioContext)();
+          window.AudioContext)();
         console.log("AudioContext 初始化");
       }
 
